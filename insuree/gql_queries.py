@@ -178,6 +178,9 @@ class InsureeGQLType(DjangoObjectType):
 
 class FamilyGQLType(DjangoObjectType):
     client_mutation_id = graphene.String()
+    parent = graphene.Field(lambda: FamilyGQLType)
+    parent_uuid = graphene.String()
+    parent_head_name = graphene.String()
 
     def resolve_location(self, info):
         if not info.context.user.has_perms(InsureeConfig.gql_query_families_perms):
@@ -190,6 +193,16 @@ class FamilyGQLType(DjangoObjectType):
             raise PermissionDenied(_("unauthorized"))
         if "insuree_loader" in info.context.dataloaders:
             return info.context.dataloaders["insuree_loader"].load(self.head_insuree_id)
+    
+    def resolve_parent(self, info):
+        return self.parent_family
+
+    def resolve_parent_uuid(self, info):
+        return str(self.parent_family.uuid) if self.parent_family and hasattr(self.parent_family, 'uuid') and self.parent_family.uuid else None
+
+    def resolve_parent_head_name(self, info):
+        if self.parent_family and hasattr(self.parent_family, 'head_insuree') and self.parent_family.head_insuree:
+            return f"{self.parent_family.head_insuree.last_name} {self.parent_family.head_insuree.other_names}".strip()
 
     class Meta:
         model = Family
@@ -202,6 +215,7 @@ class FamilyGQLType(DjangoObjectType):
             "address": ["exact", "istartswith", "icontains", "iexact"],
             "ethnicity": ["exact"],
             "is_offline": ["exact"],
+            "parent_uuid": ["exact"],
             **prefix_filterset("location__", LocationGQLType._meta.filter_fields),
             **prefix_filterset("head_insuree__", InsureeGQLType._meta.filter_fields),
             **prefix_filterset("members__", InsureeGQLType._meta.filter_fields)
