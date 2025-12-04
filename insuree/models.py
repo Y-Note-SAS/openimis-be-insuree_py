@@ -116,21 +116,10 @@ class Family(core_models.VersionedModel, core_models.ExtendableModel):
         models.DO_NOTHING, db_column='ConfirmationType', blank=True, null=True,
         related_name='families')
     audit_user_id = models.IntegerField(db_column='AuditUserID')
-    parent_family = models.ForeignKey(
-        'self',
-        db_column='ParentFamily',
-        null=True,
-        blank=True,
-        related_name='sub_families',
-        on_delete=models.DO_NOTHING
-    )
-
-    polygamous_family = models.BooleanField(
-        db_column='PoligamousFamily',
-        null=True,
-        blank=True,
-        default=False
-    )
+    parent = models.ForeignKey(
+        'Family', models.DO_NOTHING, db_column='ParentFamily', blank=True, null=True)
+    polygamous = models.BooleanField(
+        db_column='PoligamousFamily', blank=True, null=True)
 
     # rowid = models.TextField(db_column='RowID', blank=True, null=True)
 

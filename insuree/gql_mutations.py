@@ -84,6 +84,7 @@ class FamilyBase:
     confirmation_no = graphene.String(max_length=12, required=False)
     confirmation_type_id = graphene.String(max_length=3, required=False)
     json_ext = graphene.types.json.JSONString(required=False)
+    parent_id = graphene.Int(required=False)
 
     contribution = graphene.types.json.JSONString(required=False)
 
