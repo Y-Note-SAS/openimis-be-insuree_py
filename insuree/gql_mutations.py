@@ -325,6 +325,100 @@ class DeleteInsureesMutation(OpenIMISMutation):
         if len(errors) == 1:
             errors = errors[0]['list']
         return errors
+        
+
+class MoveFamilyToParentMutation(OpenIMISMutation):
+    """
+    Moves a family to a parent one
+    """
+    _mutation_module = "insuree"
+    _mutation_class = "MoveFamilyToParentMutation"
+
+    class Input(OpenIMISMutation.Input):
+        family_uuid = graphene.String(required=True)
+        family_uuids = graphene.List(graphene.String, required=True)
+        cancel_policies = graphene.Boolean(default_value=False)
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+        errors = []
+        for child_family_uuid in data["family_uuids"]:
+            if child_family_uuid == data["family_uuid"]:
+                errors.append({
+                    'title': child_family_uuid,
+                    'list': [{'message': _(
+                        "family.validation.assign_self") % {'id': child_family_uuid}}]
+                })
+                continue
+            family = Family.objects \
+                .prefetch_related('parent') \
+                .filter(uuid=(child_family_uuid)) \
+                .first()
+            if family is None:
+                errors += {
+                    'title': family,
+                    'list': [{'message': _(
+                        "family.validation.not_exist") % {'id': child_family_uuid}}]
+                }
+                continue
+            insuree_service = InsureeService(user)
+            if data['cancel_policies']:
+                insurees = Insuree.objects \
+                .prefetch_related('family') \
+                .filter(family_id=family.id)
+                if insurees:
+                    for insuree in insurees:
+                        errors += insuree_service.cancel_policies(insuree)
+            parent_family = Family.objects \
+                .prefetch_related('parent') \
+                .filter(uuid=(data["family_uuid"])) \
+                .first()
+            setattr(family, 'parent', parent_family)
+            family.save()
+        if len(errors) == 1:
+            errors = errors[0]['list']
+        return errors
+
+
+class DeleteFamiliesFromParentMutation(OpenIMISMutation):
+    """
+    Deletes the parent on a family
+    """
+    _mutation_module = "insuree"
+    _mutation_class = "DeleteFamiliesFromParentMutation"
+
+    class Input(OpenIMISMutation.Input):
+        family_uuids = graphene.List(graphene.String, required=True)
+        cancel_policies = graphene.Boolean(default_value=False)
+
+    @classmethod
+    def async_mutate(cls, user, **data):
+        errors = []
+        for child_family_uuid in data["family_uuids"]:
+            family = Family.objects \
+                .prefetch_related('parent') \
+                .filter(uuid=(child_family_uuid)) \
+                .first()
+            if family is None:
+                errors += {
+                    'title': family,
+                    'list': [{'message': (
+                        "Family %(id)s does not exist") % {'id': child_family_uuid}}]
+                }
+                continue
+            insuree_service = InsureeService(user)
+            if data['cancel_policies']:
+                insurees = Insuree.objects \
+                .prefetch_related('family') \
+                .filter(family_id=family.id)
+                if insurees:
+                    for insuree in insurees:
+                        errors += insuree_service.cancel_policies(insuree)
+            setattr(family, 'parent', None)
+            family.save()
+        if len(errors) == 1:
+            errors = errors[0]['list']
+        return errors
 
 
 class RemoveInsureesMutation(OpenIMISMutation):
