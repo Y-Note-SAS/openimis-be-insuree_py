@@ -343,6 +343,12 @@ class MoveFamilyToParentMutation(OpenIMISMutation):
     def async_mutate(cls, user, **data):
         errors = []
         for child_family_uuid in data["family_uuids"]:
+            if not child_family_uuid:
+                errors.append({
+                    'title': "Invalid UUID",
+                    'list': [{'message': _("family.validation.uuid_required")}]
+                })
+                continue
             if child_family_uuid == data["family_uuid"]:
                 errors.append({
                     'title': child_family_uuid,
@@ -355,11 +361,11 @@ class MoveFamilyToParentMutation(OpenIMISMutation):
                 .filter(uuid=(child_family_uuid)) \
                 .first()
             if family is None:
-                errors += {
-                    'title': family,
+                errors.append({
+                    'title': child_family_uuid,
                     'list': [{'message': _(
                         "family.validation.not_exist") % {'id': child_family_uuid}}]
-                }
+                })
                 continue
             insuree_service = InsureeService(user)
             if data['cancel_policies']:
@@ -375,9 +381,13 @@ class MoveFamilyToParentMutation(OpenIMISMutation):
                 .first()
             setattr(family, 'parent', parent_family)
             family.save()
-        if len(errors) == 1:
-            errors = errors[0]['list']
-        return errors
+        normalized_errors = []
+        for error in errors:
+            if isinstance(error, dict) and 'list' in error:
+                normalized_errors += error['list']
+            else:
+                normalized_errors.append(error)
+        return normalized_errors
 
 
 class DeleteFamiliesFromParentMutation(OpenIMISMutation):
@@ -395,16 +405,22 @@ class DeleteFamiliesFromParentMutation(OpenIMISMutation):
     def async_mutate(cls, user, **data):
         errors = []
         for child_family_uuid in data["family_uuids"]:
+            if not child_family_uuid:
+                errors.append({
+                    'title': "Invalid UUID",
+                    'list': [{'message': _("family.validation.uuid_required")}]
+                })
+                continue
             family = Family.objects \
                 .prefetch_related('parent') \
                 .filter(uuid=(child_family_uuid)) \
                 .first()
             if family is None:
-                errors += {
-                    'title': family,
+                errors.append({
+                    'title': child_family_uuid,
                     'list': [{'message': (
                         "Family %(id)s does not exist") % {'id': child_family_uuid}}]
-                }
+                })
                 continue
             insuree_service = InsureeService(user)
             if data['cancel_policies']:
@@ -416,9 +432,13 @@ class DeleteFamiliesFromParentMutation(OpenIMISMutation):
                         errors += insuree_service.cancel_policies(insuree)
             setattr(family, 'parent', None)
             family.save()
-        if len(errors) == 1:
-            errors = errors[0]['list']
-        return errors
+        normalized_errors = []
+        for error in errors:
+            if isinstance(error, dict) and 'list' in error:
+                normalized_errors += error['list']
+            else:
+                normalized_errors.append(error)
+        return normalized_errors
 
 
 class RemoveInsureesMutation(OpenIMISMutation):
