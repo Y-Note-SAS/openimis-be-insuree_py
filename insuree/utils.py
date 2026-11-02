@@ -1,4 +1,45 @@
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
+
+
+# Characters trimmed from both ends of an insuree number (whitespace and
+# invisible characters commonly introduced by copy/paste or legacy imports).
+INSUREE_NUMBER_EDGE_CHARS = (
+    " \t\n\r\f\v"
+    "\u00a0"  # no-break space
+    "\u2007"  # figure space
+    "\u202f"  # narrow no-break space
+    "\u200b"  # zero-width space
+    "\u200c"  # zero-width non-joiner
+    "\u200d"  # zero-width joiner
+    "\u2060"  # word joiner
+    "\ufeff"  # byte order mark / zero-width no-break space
+)
+
+# Invisible/control characters that must not remain inside an insuree number.
+# A regular space is allowed because some legacy numbers contain one.
+INSUREE_NUMBER_FORBIDDEN_CHARS = frozenset(
+    "\t\n\r\f\v\u00a0\u2007\u202f\u200b\u200c\u200d\u2060\ufeff"
+)
+
+
+def normalize_insuree_number(value):
+    """Normalize an insuree number before it is stored or looked up.
+
+    Surrounding whitespace/invisible characters are removed. Invisible or
+    control characters left inside the value are rejected, so that two
+    visually identical insuree numbers cannot be stored differently.
+
+    :param value: raw insuree number (may be None)
+    :return: normalized insuree number (or None)
+    :raises ValidationError: if an invisible character remains inside
+    """
+    if value is None:
+        return None
+    normalized = str(value).strip(INSUREE_NUMBER_EDGE_CHARS)
+    if any(char in INSUREE_NUMBER_FORBIDDEN_CHARS for char in normalized):
+        raise ValidationError(_("Insuree number cannot contain invisible characters."))
+    return normalized
 
 
 def generate_error_return(instance_name_str, checksum_return=False):
