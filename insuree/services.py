@@ -19,6 +19,7 @@ from core.models import filter_validity, resolved_id_reference
 from cs.models import ChequeImportLine
 from location import models as location_models
 from .models import FamilyMutation, InsureeMutation
+from .utils import normalize_insuree_number
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,13 @@ def custom_insuree_number_validation(insuree_number):
 
 
 def validate_insuree_number(insuree_number, insuree_uuid=None):
+    try:
+        insuree_number = normalize_insuree_number(insuree_number)
+    except ValidationError as exc:
+        return [{
+            "errorCode": InsureeConfig.validation_code_invalid_insuree_number_exception,
+            "message": exc.messages[0] if exc.messages else str(exc),
+        }]
     query = Insuree.objects.filter(
         chf_id=insuree_number, validity_to__isnull=True)
     insuree = query.first()
@@ -357,6 +365,8 @@ class InsureeService:
     @register_service_signal('insuree_service.create_or_update')
     def create_or_update(self, data, create_family=True):
         # client_mutation_id = data.pop('client_mutation_id_save', None)
+        if data.get("chf_id") is not None:
+            data["chf_id"] = normalize_insuree_number(data["chf_id"])
         print("create or update...")
         if "uuid" in data:
             existing_insuree = Insuree.objects.filter(uuid=data["uuid"]).first()
