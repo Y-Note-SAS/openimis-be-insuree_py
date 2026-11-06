@@ -1,4 +1,5 @@
 import graphene
+from graphql import GraphQLError
 
 from claim.apps import ClaimConfig
 from core.gql.export_mixin import ExportableQueryMixin
@@ -12,6 +13,10 @@ import graphene_django_optimizer as gql_optimizer
 from location.models import Location, LocationManager
 
 from insuree.apps import InsureeConfig
+from insuree.mpi.client import MpiClient
+from insuree.mpi.exceptions import MpiAmbiguous, MpiInvalidPayload, MpiUnavailable
+from insuree.mpi.service import get_or_create_from_bundle
+from insuree.utils import normalize_insuree_number
 from .models import FamilyMutation, InsureeMutation
 from django.utils.translation import gettext as _
 from location.apps import LocationConfig
@@ -29,6 +34,29 @@ from .signals import signal_before_insuree_policy_query, _read_signal_results, \
 
 def family_fk(arg):
     return arg.startswith("members_") or arg.startswith("head_insuree_")
+
+
+_MPI_FALLBACK_IGNORED_ARGS = {
+    "chf_id", "chfId", "ignore_location", "ignoreLocation",
+    "show_history", "showHistory", "uuid",
+    "first", "last", "before", "after", "offset", "orderBy",
+    "parent_location", "parentLocation",
+    "parent_location_level", "parentLocationLevel",
+    "client_mutation_id", "clientMutationId",
+    "additional_filters", "additionalFilters",
+}
+
+
+def _should_fallback_mpi(kwargs, chf_id, queryset):
+    """Return True when the enquiry lookup must be delegated to the CHC."""
+    if not InsureeConfig.mpi_fallback_enabled or not chf_id:
+        return False
+    for key, value in kwargs.items():
+        if key in _MPI_FALLBACK_IGNORED_ARGS:
+            continue
+        if value not in (None, False, "", []):
+            return False
+    return not queryset.exists()
 
 
 class FamiliesConnectionField(OrderedDjangoFilterConnectionField):
@@ -162,8 +190,9 @@ class Query(ExportableQueryMixin, graphene.ObjectType):
             raise PermissionDenied(_("unauthorized"))
         filters = []
         additional_filter = kwargs.get('additional_filters', None)
-        chf_id = kwargs.get('chf_id')
+        chf_id = kwargs.get('chf_id') or kwargs.get('chfId')
         if chf_id is not None:
+            chf_id = normalize_insuree_number(chf_id)
             filters.append(Q(chf_id=chf_id))
         if additional_filter:
             filters_from_signal = _insuree_insuree_additional_filters(
@@ -196,8 +225,25 @@ class Query(ExportableQueryMixin, graphene.ObjectType):
             filters += [Q(LocationManager().build_user_location_filter_query(info.context.user._u, prefix='current_village__parent__parent', loc_types=['D']) |
                         LocationManager().build_user_location_filter_query(info.context.user._u, prefix='family__location__parent__parent', loc_types=['D']))]
 
-        return gql_optimizer.query(Insuree.objects.filter(*filters).all(), info)
-        # return gql_optimizer.query(Insuree.objects.select_related('family', 'gender', 'health_facility', 'current_village').filter(*filters).all(), info)
+        queryset = Insuree.objects.filter(*filters).all()
+        if _should_fallback_mpi(kwargs, chf_id, queryset):
+            try:
+                bundle = MpiClient().search_patient(chf_id)
+            except MpiAmbiguous as exc:
+                raise GraphQLError("Plusieurs patients correspondent à ce CHFID.") from exc
+            except (MpiUnavailable, MpiInvalidPayload) as exc:
+                raise GraphQLError("Recherche CHC indisponible, réessayez.") from exc
+
+            if bundle is not None:
+                try:
+                    get_or_create_from_bundle(bundle, chf_id)
+                except MpiAmbiguous as exc:
+                    raise GraphQLError("Plusieurs patients correspondent à ce CHFID.") from exc
+                except MpiInvalidPayload as exc:
+                    raise GraphQLError("Réponse du CHC invalide.") from exc
+                queryset = Insuree.objects.filter(*filters).all()
+
+        return gql_optimizer.query(queryset, info)
 
     def resolve_family_members(self, info, **kwargs):
         if not info.context.user.has_perms(InsureeConfig.gql_query_insuree_family_members):

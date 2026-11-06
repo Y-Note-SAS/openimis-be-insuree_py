@@ -47,6 +47,7 @@ DEFAULT_CFG = {
     "mpi_total_timeout": 10,
     "mpi_patient_path": "/api/fhir/Patient",
     "mpi_default_location_code": "05BAT06V",
+    "mpi_fallback_enabled": False,
 }
 
 
@@ -93,6 +94,7 @@ class InsureeConfig(AppConfig):
     mpi_total_timeout = 10
     mpi_patient_path = "/api/fhir/Patient"
     mpi_default_location_code = "05BAT06V"
+    mpi_fallback_enabled = False
 
     def __load_config(self, cfg):
         for field in cfg:
