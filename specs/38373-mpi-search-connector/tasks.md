@@ -30,7 +30,7 @@
 
 ## 2/4 — #38374 : Client openHIM + diagnostic
 
-- [ ] **T001** Config client dans `insuree/apps.py` (`DEFAULT_CFG`) : `mpi_base_url`, `mpi_auth_user`, `mpi_auth_password`, `mpi_timeout_connect` (3 s), `mpi_timeout_read` (7 s), `mpi_total_timeout` (10 s).
+- [ ] **T001** Config client dans `insuree/apps.py` (`DEFAULT_CFG`) : `mpi_base_url`, `mpi_auth_user`, `mpi_auth_password`, `mpi_timeout_connect` (3 s), `mpi_timeout_read` (7 s), `mpi_total_timeout` (10 s), `mpi_patient_path` (défaut `/api/fhir/Patient`).
 - [ ] **T002** Créer `insuree/mpi/` : `__init__.py`, `exceptions.py` (`MpiError`, `MpiUnavailable`, `MpiAmbiguous`, `MpiInvalidPayload`).
 - [ ] **T003** `insuree/mpi/client.py` : `search_patient(identifier) -> Bundle | None`, basic-auth, timeouts 3/7/10 s, gestion 200/404/5xx/réponse invalide/Bundle vide.
 - [ ] **T004** Tests client (HTTP simulé) : auth, 200, 404, 500, timeout, JSON invalide, date limite totale.
