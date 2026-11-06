@@ -3,6 +3,7 @@ from unittest import mock
 import requests
 from django.test import SimpleTestCase
 
+from insuree.apps import InsureeConfig
 from insuree.mpi.client import MpiClient
 from insuree.mpi.exceptions import MpiAmbiguous, MpiError, MpiInvalidPayload, MpiUnavailable
 
@@ -112,3 +113,18 @@ class MpiClientTestCase(SimpleTestCase):
     def test_empty_identifier_raises(self):
         with self.assertRaises(ValueError):
             self.client.search_patient("   ")
+
+    @mock.patch("insuree.mpi.client.requests.get")
+    def test_uses_patient_path_from_backend_config(self, get):
+        get.return_value = response(payload=bundle(1))
+        with mock.patch.object(InsureeConfig, "mpi_patient_path", "/from/config/Patient"):
+            client = MpiClient(base_url="https://openhim.example", user="mpi-user", password="secret")
+            client.search_patient("CH-001")
+        self.assertEqual(get.call_args[0][0], "https://openhim.example/from/config/Patient")
+
+    @mock.patch("insuree.mpi.client.requests.get")
+    def test_patient_path_argument_overrides_backend_config(self, get):
+        get.return_value = response(payload=bundle(1))
+        client = MpiClient(base_url="https://openhim.example", patient_path="custom/Patient")
+        client.search_patient("CH-001")
+        self.assertEqual(get.call_args[0][0], "https://openhim.example/custom/Patient")

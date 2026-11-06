@@ -47,7 +47,7 @@ Un administrateur doit pouvoir expliquer pourquoi une fiche a été créée auto
 
 - **FR-001**: Le système DOIT déclencher la recherche MPI lorsqu'une enquête par CHFID, en correspondance exacte, ne trouve aucun assuré localement.
 - **FR-002**: Le système NE DOIT effectuer aucun appel réseau lorsque l'assuré existe localement.
-- **FR-003**: Le système DOIT interroger le CHC via openHIM avec `GET /api/fhir/Patient?identifier=<CHFID>`, en lecture seule.
+- **FR-003**: Le système DOIT interroger le CHC via openHIM avec `GET <mpi_patient_path>?identifier=<CHFID>` (chemin configurable dans la configuration backend, défaut `/api/fhir/Patient`), en lecture seule.
 - **FR-004**: Le système NE DOIT jamais écrire vers le CHC.
 - **FR-005**: Si le CHC renvoie zéro Patient, le système DOIT afficher « CHFID introuvable » et ne rien créer.
 - **FR-006**: Si le CHC renvoie un Patient, le système DOIT créer l'Insuree avec `chf_id` = CHFID recherché, puis une Family dont cet Insuree est le chef et le seul membre, via le mécanisme de création de famille existant, sans le modifier.
@@ -84,6 +84,7 @@ Un administrateur doit pouvoir expliquer pourquoi une fiche a été créée auto
 - La `Location` de code `05BAT06V` existe et est active dans l'environnement cible ; à défaut, la création est refusée.
 - L'utilisateur technique a pour valeur d'audit `-1` (`TechnicalUser.id_for_audit`), valeur par défaut utilisée ailleurs dans openIMIS. `audit_user_id` est un entier, sans clé étrangère.
 - L'enquête envoie un CHFID exact : aucune recherche partielle n'est utilisée.
+- Le chemin FHIR Patient est configurable via `mpi_patient_path` ; la valeur par défaut est `/api/fhir/Patient`.
 
 ## Out of Scope
 

@@ -45,6 +45,7 @@ DEFAULT_CFG = {
     "mpi_timeout_connect": 3,
     "mpi_timeout_read": 7,
     "mpi_total_timeout": 10,
+    "mpi_patient_path": "/api/fhir/Patient",
 }
 
 
@@ -89,6 +90,7 @@ class InsureeConfig(AppConfig):
     mpi_timeout_connect = 3
     mpi_timeout_read = 7
     mpi_total_timeout = 10
+    mpi_patient_path = "/api/fhir/Patient"
 
     def __load_config(self, cfg):
         for field in cfg:

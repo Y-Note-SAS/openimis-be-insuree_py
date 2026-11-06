@@ -12,7 +12,7 @@ from .exceptions import MpiAmbiguous, MpiInvalidPayload, MpiUnavailable, MpiErro
 
 logger = logging.getLogger(__name__)
 
-PATIENT_PATH = "/api/fhir/Patient"
+DEFAULT_PATIENT_PATH = "/api/fhir/Patient"
 
 
 class MpiClient:
@@ -26,6 +26,7 @@ class MpiClient:
         timeout_connect=None,
         timeout_read=None,
         total_timeout=None,
+        patient_path=None,
     ):
         base_url = base_url if base_url is not None else InsureeConfig.mpi_base_url
         self.base_url = (base_url or "").rstrip("/")
@@ -34,6 +35,8 @@ class MpiClient:
         self.timeout_connect = timeout_connect or InsureeConfig.mpi_timeout_connect
         self.timeout_read = timeout_read or InsureeConfig.mpi_timeout_read
         self.total_timeout = total_timeout or InsureeConfig.mpi_total_timeout
+        path = patient_path or InsureeConfig.mpi_patient_path or DEFAULT_PATIENT_PATH
+        self.patient_path = path if path.startswith("/") else f"/{path}"
 
     def search_patient(self, identifier):
         """Return the FHIR Bundle of the single matching patient, or None.
@@ -59,7 +62,7 @@ class MpiClient:
 
         try:
             response = requests.get(
-                f"{self.base_url}{PATIENT_PATH}",
+                f"{self.base_url}{self.patient_path}",
                 params={"identifier": identifier},
                 auth=auth,
                 timeout=timeout,
